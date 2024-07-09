@@ -66,12 +66,15 @@ protected:
 	ABoidGpu* other;
 	AActor* target;
 	TSet<ABoidGpu*> AllBoids;
+	FVector acceleration;
 
 	FVector Steer(FVector v);
 
 public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
+
+	void SetAcceleration(FVector a);
 
 	UFUNCTION(BlueprintCallable)
 	void SetOther(ABoidGpu* o);
@@ -81,6 +84,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	AActor* GetTarget();
+
+	UFUNCTION(BlueprintCallable)
+	FVector GetBoidVelocity();
 
 	UFUNCTION(BlueprintCallable)
 	void SetAll(TSet<ABoidGpu*> aB);
