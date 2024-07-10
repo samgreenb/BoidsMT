@@ -24,6 +24,7 @@ ABoidGpu::ABoidGpu()
 	useTarget = false;
 	debug = false;
 	acceleration = FVector(0, 0, 0);
+	
 }
 
 // Called when the game starts or when spawned
@@ -31,6 +32,7 @@ void ABoidGpu::BeginPlay()
 {
 	Super::BeginPlay();
 	SetActorRotation(FMath::VRand().Rotation());
+	position = GetActorLocation();
 
 	if (randomInitialSpeed) {
 		velocity = GetActorForwardVector() * FMath::Lerp(minSpeed, maxSpeed, FMath::FRand());
@@ -58,13 +60,14 @@ void ABoidGpu::Tick(float DeltaTime)
 	//SetActorLocation(GetActorLocation() + velocity * DeltaTime);
 
 	velocity = velocity.GetClampedToSize(minSpeed, maxSpeed);
+	position = position + velocity * DeltaTime;
 
 	//SetActorLocationAndRotation(GetActorLocation() + velocity * DeltaTime, velocity.Rotation(), false, nullptr ,ETeleportType::TeleportPhysics);
 	//TeleportTo(GetActorLocation() + velocity * DeltaTime, velocity.Rotation(), true, true);
 	//SetWorldLocationAndRotation(GetActorLocation() + velocity * DeltaTime, velocity.Rotation(), true, true);
 	//GetRootComponent()->SetWorldLocationAndRotation(GetActorLocation() + velocity * DeltaTime, velocity.Rotation(), false, nullptr, ETeleportType::TeleportPhysics);
 
-	GetRootComponent()->MoveComponent(velocity * DeltaTime, velocity.Rotation().Quaternion(), false, nullptr, MOVECOMP_NoFlags, ETeleportType::TeleportPhysics);
+	//GetRootComponent()->MoveComponent(velocity * DeltaTime, velocity.Rotation().Quaternion(), false, nullptr, MOVECOMP_NoFlags, ETeleportType::TeleportPhysics);
 
 	//if (debug) {
 	//	if (GEngine)
@@ -111,7 +114,27 @@ void ABoidGpu::SetAcceleration(FVector a) {
 	acceleration = a;
 }
 
+void ABoidGpu::SetId(int32 i) {
+	id = i;
+}
+
+int32 ABoidGpu::GetId() {
+	return id;
+}
+
+FTransform ABoidGpu::GetBoidTransform() {
+	FTransform t;
+	t.SetLocation(position);
+	t.SetRotation(velocity.Rotation().Quaternion());
+	t.SetScale3D(FVector(1, 1, 1));
+	return t;
+}
+
 FVector ABoidGpu::GetBoidVelocity() {
 	return velocity;
+}
+
+FVector ABoidGpu::GetBoidPosition() {
+	return position;
 }
 

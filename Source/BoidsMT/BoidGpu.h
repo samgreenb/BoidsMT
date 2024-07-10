@@ -61,12 +61,16 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+	int32 id;
+
+	FVector position;
 	FVector velocity;
+	FVector acceleration;
 
 	ABoidGpu* other;
 	AActor* target;
 	TSet<ABoidGpu*> AllBoids;
-	FVector acceleration;
+
 
 	FVector Steer(FVector v);
 
@@ -75,6 +79,15 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	void SetAcceleration(FVector a);
+
+	UFUNCTION(BlueprintCallable)
+	void SetId(int32 id);
+
+	UFUNCTION(BlueprintCallable)
+	int32 GetId();
+
+	UFUNCTION(BlueprintCallable)
+	FTransform GetBoidTransform();
 
 	UFUNCTION(BlueprintCallable)
 	void SetOther(ABoidGpu* o);
@@ -87,6 +100,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	FVector GetBoidVelocity();
+
+	UFUNCTION(BlueprintCallable)
+	FVector GetBoidPosition();
 
 	UFUNCTION(BlueprintCallable)
 	void SetAll(TSet<ABoidGpu*> aB);

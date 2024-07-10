@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "BoidGpu.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "BoidGpuManager.generated.h"
 
 UCLASS()
@@ -63,6 +64,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Attributes)
 	AActor* target;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UInstancedStaticMeshComponent* MeshInstances;
 
 protected:
 	// Called when the game starts or when spawned

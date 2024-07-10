@@ -26,6 +26,8 @@ ABoidGpuManager::ABoidGpuManager()
 	debug = false;
 	numThinkGroups = 1;
 	thinkGroupCounter = 0;
+
+	MeshInstances = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("MeshInstances"));
 }
 
 // Called when the game starts or when spawned
@@ -64,6 +66,15 @@ void ABoidGpuManager::Tick(float DeltaTime)
 	}
 	thinkGroupCounter++;
 	thinkGroupCounter  = thinkGroupCounter % numThinkGroups;
+
+	TArray<FTransform> transforms;
+	for (auto& Elem : AllBoids)
+	{
+		//MeshInstances->UpdateInstanceTransform(Elem->GetId(), Elem->GetBoidTransform(), true, false, true);
+		transforms.Add(Elem->GetBoidTransform());
+	}
+	MeshInstances->BatchUpdateInstancesTransforms(0, transforms, true, false, true);
+	//MeshInstances->MarkRenderStateDirty();
 }
 
 void ABoidGpuManager::ProcessBoid(ABoidGpu* b)
@@ -78,7 +89,7 @@ void ABoidGpuManager::ProcessBoid(ABoidGpu* b)
 	FVector acceleration(0, 0, 0);
 
 	if (useTarget && target != NULL) {
-		FVector offsetToTarget = target->GetActorLocation() - b->GetActorLocation();
+		FVector offsetToTarget = target->GetActorLocation() - b->GetBoidPosition();
 		acceleration = Steer(offsetToTarget, b->GetBoidVelocity()) * targetWeight;
 		//if (debug) {
 		//	if (GEngine){
@@ -95,7 +106,7 @@ void ABoidGpuManager::ProcessBoid(ABoidGpu* b)
 		if (Elem == b) continue;
 
 		// distance check
-		FVector distanceVector = Elem->GetActorLocation() - b->GetActorLocation();
+		FVector distanceVector = Elem->GetBoidPosition() - b->GetBoidPosition();
 		float distanceSqr = distanceVector.X * distanceVector.X + distanceVector.Y * distanceVector.Y + distanceVector.Z * distanceVector.Z;
 		float distance = distanceVector.Length();
 
@@ -114,7 +125,7 @@ void ABoidGpuManager::ProcessBoid(ABoidGpu* b)
 		VM += Elem->GetBoidVelocity();
 
 		// Flock centering
-		FC += Elem->GetActorLocation();
+		FC += Elem->GetBoidPosition();
 	}
 
 	if (BCount > 0) {
@@ -124,7 +135,7 @@ void ABoidGpuManager::ProcessBoid(ABoidGpu* b)
 		VM = Steer(VM, b->GetBoidVelocity()) * velocityMatchingWeight;
 
 		FC = FC / BCount;
-		FC = FC - b->GetActorLocation();
+		FC = FC - b->GetBoidPosition();
 		FC = Steer(FC, b->GetBoidVelocity()) * flockCenteringWeight;
 
 		if (CA.Length() > 0.0f) {
