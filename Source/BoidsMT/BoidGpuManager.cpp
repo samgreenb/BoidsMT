@@ -2,7 +2,7 @@
 
 
 #include "BoidGpuManager.h"
-
+#include "ComputeShader/Public/ExampleComputeShader/ExampleComputeShader.h"
 
 // Sets default values
 ABoidGpuManager::ABoidGpuManager()
@@ -39,6 +39,18 @@ void ABoidGpuManager::BeginPlay()
 	//	TSet<ABoidGpu*> set;
 	//	thinkGroups.Add(set);
 	//}
+
+	FExampleComputeShaderDispatchParams Params(1, 1, 1);
+
+	Params.Input[0] = 2;
+	Params.Input[1] = 5;
+
+	FExampleComputeShaderInterface::Dispatch(Params, [](int OutputVal) {
+		// OutputVal == 10
+		// Called when the results are back from the GPU.
+		if (GEngine) 
+			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::FromInt(OutputVal));
+	});
 	
 }
 

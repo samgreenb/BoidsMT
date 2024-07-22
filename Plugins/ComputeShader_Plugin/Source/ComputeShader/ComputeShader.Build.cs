@@ -8,7 +8,7 @@ public class ComputeShader: ModuleRules
 
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
-		
+
 		PrivateIncludePaths.AddRange(new string[] 
 		{
 			"Runtime/Renderer/Private",
