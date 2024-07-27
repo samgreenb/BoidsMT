@@ -2,6 +2,7 @@
 
 
 #include "BoidGpu.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 // Sets default values
 ABoidGpu::ABoidGpu()
@@ -50,6 +51,28 @@ void ABoidGpu::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	velocity += acceleration * DeltaTime;
+
+	//UKismetSystemLibrary::LineTraceSingle(nullptr, GetActorLocation(), GetActorLocation() + GetActorForwardVector() * 10, ETraceTypeQuery::TraceTypeQuery1, false);
+
+	// raycasting is here
+
+	//FCollisionQueryParams RV_TraceParams = FCollisionQueryParams(FName(TEXT("RV_Trace")), true, this);
+	//RV_TraceParams.bTraceComplex = true;
+	////RV_TraceParams.bTraceAsyncScene = true;
+	//RV_TraceParams.bReturnPhysicalMaterial = false;
+
+	////Re-initialize hit info
+	//FHitResult RV_Hit(ForceInit);
+
+	////call GetWorld() from within an actor extending class
+	//GetWorld()->LineTraceSingleByChannel(
+	//	RV_Hit,		//result
+	//	GetActorLocation(),	//start
+	//	GetActorLocation() + (GetActorForwardVector() * FVector(10.0f)), //end
+	//	ECC_Pawn, //collision channel
+	//	RV_TraceParams
+	//);
+
 
 	//float targetSpeed = velocity.Length();
 	//FVector dir = velocity / targetSpeed;

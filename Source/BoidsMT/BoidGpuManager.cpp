@@ -43,13 +43,15 @@ void ABoidGpuManager::BeginPlay()
 	FExampleComputeShaderDispatchParams Params(1, 1, 1);
 
 	Params.Input[0] = 2;
-	Params.Input[1] = 5;
+	Params.Input[1] = 6;
 
-	FExampleComputeShaderInterface::Dispatch(Params, [](int OutputVal) {
+	FExampleComputeShaderInterface::Dispatch(Params, [&](int OutputVal) {
 		// OutputVal == 10
 		// Called when the results are back from the GPU.
-		if (GEngine) 
-			GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::FromInt(OutputVal));
+
+		UE_LOG(LogTemp, Warning, TEXT("HERE"));
+		UE_LOG(LogTemp, Warning, TEXT("%i"), OutputVal);
+			
 	});
 	
 }
@@ -169,8 +171,8 @@ void ABoidGpuManager::SetTarget(AActor* t) {
 
 void ABoidGpuManager::SetAll(TSet<ABoidGpu*> aB) {
 	AllBoids = aB;
-	if (GEngine)
-		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("Boids received"));
+	//if (GEngine)
+	//	GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("Boids received"));
 }
 
 FVector ABoidGpuManager::Steer(FVector v, FVector velocity) {

@@ -53,9 +53,14 @@ public:
 
 		// SHADER_PARAMETER_STRUCT_REF(FMyCustomStruct, MyCustomStruct)
 
+		//SHADER_PARAMETER_SRV(StructuredBuffer<FShaderBoid>, InputBoids) // On the shader side: Buffer<FMyCustomStruct> MyCustomStructs;
+		//SHADER_PARAMETER_UAV(RWStructuredBuffer<FShaderBoidResult>, OutputBoids) // On the shader side: RWBuffer<FMyCustomStruct> MyCustomStructs;
 		
-		SHADER_PARAMETER_RDG_BUFFER_SRV(Buffer<int>, Input)
-		SHADER_PARAMETER_RDG_BUFFER_UAV(RWBuffer<int>, Output)
+		SHADER_PARAMETER_RDG_BUFFER_SRV(StructuredBuffer<FShaderBoid>, InputBoids)
+		SHADER_PARAMETER_RDG_BUFFER_UAV(RWStructuredBuffer<FShaderBoid>, OutputBoids)
+
+		//SHADER_PARAMETER_RDG_BUFFER_SRV(Buffer<int>, Input)
+		//SHADER_PARAMETER_RDG_BUFFER_UAV(RWBuffer<int>, Output)
 		
 
 	END_SHADER_PARAMETER_STRUCT()
@@ -120,20 +125,67 @@ void FExampleComputeShaderInterface::DispatchRenderThread(FRHICommandListImmedia
 
 		if (bIsShaderValid) {
 			FExampleComputeShader::FParameters* PassParameters = GraphBuilder.AllocParameters<FExampleComputeShader::FParameters>();
-
 			
-			const void* RawData = (void*)Params.Input;
-			int NumInputs = 2;
-			int InputSize = sizeof(int);
-			FRDGBufferRef InputBuffer = CreateUploadBuffer(GraphBuilder, TEXT("InputBuffer"), InputSize, NumInputs, RawData, InputSize * NumInputs);
+			//
+			TArray<FShaderBoid> boidst;
+			FShaderBoid a;
+			a.forward = FVector3f(7.0f);
+			a.location = FVector3f(8.0f);
+			boidst.Add(a);
+			uint32 size1 = boidst.Num();        // parameters.verticies type is TArray<FVector> verticies
+			if (size1 > 0)
+			{
+				FRDGBufferRef InputBuffer4 = CreateStructuredBuffer(
+					GraphBuilder,
+					TEXT("InputBoidsBuffer"),
+					sizeof(FShaderBoid),
+					size1,
+					boidst.GetData(),
+					sizeof(FShaderBoid) * size1,
+					ERDGInitialDataFlags::None);
+				PassParameters->InputBoids = GraphBuilder.CreateSRV(InputBuffer4, PF_R32_UINT);
+			}
+			//
+			//
+			TArray<FShaderBoidResult> boidsrt;
+			FShaderBoidResult b;
+			boidsrt.Add(b);
+			uint32 size2 = boidsrt.Num();        // parameters.verticies type is TArray<FVector> verticies
+			FRDGBufferRef IOBuffer = NULL;
+			if (size2 > 0)
+			{
+				IOBuffer = CreateStructuredBuffer(
+					GraphBuilder,
+					TEXT("OutputBoidsBuffer"),
+					sizeof(FShaderBoidResult),
+					size2,
+					boidst.GetData(),
+					sizeof(FShaderBoidResult) * size2,
+					ERDGInitialDataFlags::None);
+				PassParameters->OutputBoids = GraphBuilder.CreateUAV(IOBuffer, PF_R32_UINT);
+			}
+			//
 
-			PassParameters->Input = GraphBuilder.CreateSRV(FRDGBufferSRVDesc(InputBuffer, PF_R32_SINT));
+			//TArray<FShaderBoid> boidst;
+			//FShaderBoid test[10];
+			//boidst.Add(test[0]);
+			//const void* RawData = (void*)test;
+			//int NumInputs = 10;
+			//int InputSize = sizeof(FShaderBoid);
+			//
+			//FRDGBufferRef InputBuffer = CreateUploadBuffer(GraphBuilder, TEXT("InputBuffer"), InputSize, NumInputs, RawData, InputSize * NumInputs);
+			//FRDGBufferRef InputBuffer2 = CreateStructuredUploadBuffer(GraphBuilder, TEXT("InputBoidsBuffer"), boidst);
 
-			FRDGBufferRef OutputBuffer = GraphBuilder.CreateBuffer(
-				FRDGBufferDesc::CreateBufferDesc(sizeof(int32), 1),
-				TEXT("OutputBuffer"));
+			//PassParameters->InputBoids = GraphBuilder.Create
+			//PassParameters->InputBoids = GraphBuilder.CreateSRV(FRDGBufferSRVDesc(InputBuffer2, PF_R32_SINT));
+			//PassParameters->Input = GraphBuilder.CreateSRV(FRDGBufferSRVDesc(InputBuffer2, PF_R32_SINT));
+			//PassParameters->InputBoids = GraphBuilder.CreateSRV(FRHIShaderResourceView(InputBuffer2, PF_R32_SINT));
 
-			PassParameters->Output = GraphBuilder.CreateUAV(FRDGBufferUAVDesc(OutputBuffer, PF_R32_SINT));
+			//FRDGBufferRef OutputBuffer = GraphBuilder.CreateBuffer(
+			//	FRDGBufferDesc::CreateBufferDesc(sizeof(int32), 1),
+			//	TEXT("OutputBuffer"));
+
+			//PassParameters->OutputBoids = GraphBuilder.CreateUAV(FRDGBufferUAVDesc(OutputBuffer, PF_R32_SINT));
 			
 
 			auto GroupCount = FComputeShaderUtils::GetGroupCount(FIntVector(Params.X, Params.Y, Params.Z), FComputeShaderUtils::kGolden2DGroupSize);
@@ -148,15 +200,23 @@ void FExampleComputeShaderInterface::DispatchRenderThread(FRHICommandListImmedia
 
 			
 			FRHIGPUBufferReadback* GPUBufferReadback = new FRHIGPUBufferReadback(TEXT("ExecuteExampleComputeShaderOutput"));
-			AddEnqueueCopyPass(GraphBuilder, GPUBufferReadback, OutputBuffer, 0u);
+			AddEnqueueCopyPass(GraphBuilder, GPUBufferReadback, IOBuffer, 0u);
 
 			auto RunnerFunc = [GPUBufferReadback, AsyncCallback](auto&& RunnerFunc) -> void {
 				if (GPUBufferReadback->IsReady()) {
 					
-					int32* Buffer = (int32*)GPUBufferReadback->Lock(1);
-					int OutVal = Buffer[0];
+					FShaderBoidResult* Buffer = (FShaderBoidResult*)GPUBufferReadback->Lock(1);
+					FShaderBoidResult buffer0 = Buffer[0];
+					FString log = buffer0.VM.ToString(); 
 					
+					int OutVal = 513;
+
 					GPUBufferReadback->Unlock();
+
+					#if WITH_EDITOR
+						UE_LOG(LogTemp, Warning, TEXT("%s"), *log);
+						//GEngine->AddOnScreenDebugMessage((uint64)42145125184, 6.f, FColor::Red, FString(buffer0.FC.ToString()));
+					#endif
 
 					AsyncTask(ENamedThreads::GameThread, [AsyncCallback, OutVal]() {
 						AsyncCallback(OutVal);

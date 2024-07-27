@@ -28,8 +28,22 @@ struct COMPUTESHADER_API FExampleComputeShaderDispatchParams
 	}
 };
 
+struct COMPUTESHADER_API FShaderBoid
+{
+	FVector3f location;
+	FVector3f forward;
+};
+
+struct COMPUTESHADER_API FShaderBoidResult
+{
+	FVector3f CA;
+	FVector3f VM;
+	FVector3f FC;
+};
+
 // This is a public interface that we define so outside code can invoke our compute shader.
 class COMPUTESHADER_API FExampleComputeShaderInterface {
+
 public:
 	// Executes this shader on the render thread
 	static void DispatchRenderThread(
@@ -67,7 +81,7 @@ public:
 
 
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnExampleComputeShaderLibrary_AsyncExecutionCompleted, const int, Value);
+//DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnExampleComputeShaderLibrary_AsyncExecutionCompleted, const int, Value);
 
 
 UCLASS() // Change the _API to match your project
@@ -85,9 +99,9 @@ public:
 		Params.Input[1] = Arg2;
 
 		// Dispatch the compute shader and wait until it completes
-		FExampleComputeShaderInterface::Dispatch(Params, [this](int OutputVal) {
+		/*FExampleComputeShaderInterface::Dispatch(Params, [this](int OutputVal) {
 			this->Completed.Broadcast(OutputVal);
-		});
+		});*/
 	}
 	
 	
@@ -102,8 +116,8 @@ public:
 		return Action;
 	}
 
-	UPROPERTY(BlueprintAssignable)
-	FOnExampleComputeShaderLibrary_AsyncExecutionCompleted Completed;
+	//UPROPERTY(BlueprintAssignable)
+	//FOnExampleComputeShaderLibrary_AsyncExecutionCompleted Completed;
 
 	
 	int Arg1;

@@ -1,7 +1,21 @@
 #include "/Engine/Public/Platform.ush"
+//#include "ComputeShader/Public/ExampleComputeShader/ExampleComputeShader.h"
 
-Buffer<int> Input;
-RWBuffer<int> Output;
+struct FShaderBoid
+{
+    float3 location;
+    float3 forward;
+};
+
+struct FShaderBoidResult
+{
+    float3 CA;
+    float3 VM;
+    float3 FC;
+};
+
+StructuredBuffer<FShaderBoid> InputBoids;
+RWStructuredBuffer<FShaderBoidResult> OutputBoids;
 
 [numthreads(THREADS_X, THREADS_Y, THREADS_Z)]
 void ExampleComputeShader(
@@ -9,5 +23,13 @@ void ExampleComputeShader(
 	uint GroupIndex : SV_GroupIndex )
 {
 	// Outputs one number
-	Output[0] = Input[0] * Input[1];
+	//Output[0] = Input[0] * Input[1];
+    int i = 0;
+    i++;
+    
+    uint numBoids;
+    uint stride;
+    
+    InputBoids.GetDimensions(numBoids, stride);
+    OutputBoids[0].VM = InputBoids[0].forward + InputBoids[0].location;
 }
