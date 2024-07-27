@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "BoidGpu.h"
 #include "Components/InstancedStaticMeshComponent.h"
+#include "ComputeShader/Public/ExampleComputeShader/ExampleComputeShader.h"
 #include "BoidGpuManager.generated.h"
 
 UCLASS()
@@ -60,13 +61,21 @@ public:
 	bool debug;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Attributes)
+	bool executeInGPU;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Attributes)
 	int numThinkGroups;
+
+	int debugCounter;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Attributes)
 	AActor* target;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UInstancedStaticMeshComponent* MeshInstances;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Attributes)
+	FVector threadsShader;
 
 protected:
 	// Called when the game starts or when spawned
@@ -76,12 +85,18 @@ protected:
 	TSet<ABoidGpu*> AllBoids;
 
 	TArray< TSet<ABoidGpu*> > thinkGroups;
+
 	void ProcessBoid(ABoidGpu* b);
+	void ProcessBoidGPU(FShaderBoidResult result, ABoidGpu* b, int id);
 
 	FVector Steer(FVector v, FVector velocity);
 
 	UFUNCTION(BlueprintCallable)
 	void SetThinkGroups();
+
+	void ProcessGPU();
+
+	void ProcessCPU();
 
 	int thinkGroupCounter;
 

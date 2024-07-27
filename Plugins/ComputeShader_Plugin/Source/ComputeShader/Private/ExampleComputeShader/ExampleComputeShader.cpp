@@ -56,6 +56,7 @@ public:
 		//SHADER_PARAMETER_SRV(StructuredBuffer<FShaderBoid>, InputBoids) // On the shader side: Buffer<FMyCustomStruct> MyCustomStructs;
 		//SHADER_PARAMETER_UAV(RWStructuredBuffer<FShaderBoidResult>, OutputBoids) // On the shader side: RWBuffer<FMyCustomStruct> MyCustomStructs;
 		
+		SHADER_PARAMETER(int, NumberBoids) // On the shader side: uint32 MyUint32;
 		SHADER_PARAMETER_RDG_BUFFER_SRV(StructuredBuffer<FShaderBoid>, InputBoids)
 		SHADER_PARAMETER_RDG_BUFFER_UAV(RWStructuredBuffer<FShaderBoid>, OutputBoids)
 
@@ -104,7 +105,7 @@ private:
 //                            ShaderType                            ShaderPath                     Shader function name    Type
 IMPLEMENT_GLOBAL_SHADER(FExampleComputeShader, "/ComputeShaderShaders/ExampleComputeShader/ExampleComputeShader.usf", "ExampleComputeShader", SF_Compute);
 
-void FExampleComputeShaderInterface::DispatchRenderThread(FRHICommandListImmediate& RHICmdList, FExampleComputeShaderDispatchParams Params, TFunction<void(int OutputVal)> AsyncCallback) {
+void FExampleComputeShaderInterface::DispatchRenderThread(FRHICommandListImmediate& RHICmdList, FExampleComputeShaderDispatchParams Params, TArray<FShaderBoid> shaderBoids, TFunction<void(TArray<FShaderBoidResult> shaderBoidsResult)> AsyncCallback) {
 	FRDGBuilder GraphBuilder(RHICmdList);
 
 	{
@@ -122,17 +123,25 @@ void FExampleComputeShaderInterface::DispatchRenderThread(FRHICommandListImmedia
 		
 
 		bool bIsShaderValid = ComputeShader.IsValid();
-
+		int numBoids = shaderBoids.Num();
 		if (bIsShaderValid) {
 			FExampleComputeShader::FParameters* PassParameters = GraphBuilder.AllocParameters<FExampleComputeShader::FParameters>();
 			
-			//
-			TArray<FShaderBoid> boidst;
-			FShaderBoid a;
-			a.forward = FVector3f(7.0f);
-			a.location = FVector3f(8.0f);
-			boidst.Add(a);
-			uint32 size1 = boidst.Num();        // parameters.verticies type is TArray<FVector> verticies
+			//FString log = shaderBoids[0].location.ToString();
+			//FString log2 = shaderBoids[0].forward.ToString();
+			//UE_LOG(LogTemp, Warning, TEXT("%s"), *log);
+			//UE_LOG(LogTemp, Warning, TEXT("%s"), *log2);
+
+
+			//Input buffer of boids
+			//TArray<FShaderBoid> boidst;
+			//FShaderBoid a;
+			//a.forward = FVector3f(7.0f);
+			//a.location = FVector3f(8.0f);
+			//boidst.Add(a);
+			uint32 size1 = shaderBoids.Num();
+			UE_LOG(LogTemp, Warning, TEXT("Input Size %i"), size1);
+			UE_LOG(LogTemp, Warning, TEXT("Size of fv3f %i"), sizeof(FVector3f));
 			if (size1 > 0)
 			{
 				FRDGBufferRef InputBuffer4 = CreateStructuredBuffer(
@@ -140,30 +149,31 @@ void FExampleComputeShaderInterface::DispatchRenderThread(FRHICommandListImmedia
 					TEXT("InputBoidsBuffer"),
 					sizeof(FShaderBoid),
 					size1,
-					boidst.GetData(),
+					shaderBoids.GetData(),
 					sizeof(FShaderBoid) * size1,
 					ERDGInitialDataFlags::None);
 				PassParameters->InputBoids = GraphBuilder.CreateSRV(InputBuffer4, PF_R32_UINT);
 			}
 			//
-			//
+			//output buffer of acceleration values
 			TArray<FShaderBoidResult> boidsrt;
 			FShaderBoidResult b;
 			boidsrt.Add(b);
-			uint32 size2 = boidsrt.Num();        // parameters.verticies type is TArray<FVector> verticies
+			uint32 size2 = boidsrt.Num();
 			FRDGBufferRef IOBuffer = NULL;
-			if (size2 > 0)
+			if (size1 > 0)
 			{
 				IOBuffer = CreateStructuredBuffer(
 					GraphBuilder,
 					TEXT("OutputBoidsBuffer"),
 					sizeof(FShaderBoidResult),
-					size2,
-					boidst.GetData(),
-					sizeof(FShaderBoidResult) * size2,
+					size1,
+					boidsrt.GetData(),
+					sizeof(FShaderBoidResult) * 1,
 					ERDGInitialDataFlags::None);
 				PassParameters->OutputBoids = GraphBuilder.CreateUAV(IOBuffer, PF_R32_UINT);
 			}
+			PassParameters->NumberBoids = numBoids;
 			//
 
 			//TArray<FShaderBoid> boidst;
@@ -188,7 +198,10 @@ void FExampleComputeShaderInterface::DispatchRenderThread(FRHICommandListImmedia
 			//PassParameters->OutputBoids = GraphBuilder.CreateUAV(FRDGBufferUAVDesc(OutputBuffer, PF_R32_SINT));
 			
 
-			auto GroupCount = FComputeShaderUtils::GetGroupCount(FIntVector(Params.X, Params.Y, Params.Z), FComputeShaderUtils::kGolden2DGroupSize);
+			//auto GroupCount = FComputeShaderUtils::GetGroupCount(FIntVector(Params.X, Params.Y, Params.Z), FComputeShaderUtils::kGolden2DGroupSize);
+			auto GroupCount = FIntVector(Params.X, Params.Y, Params.Z);
+			FString loggc = GroupCount.ToString();
+			UE_LOG(LogTemp, Warning, TEXT("group count %s"), *loggc);
 			GraphBuilder.AddPass(
 				RDG_EVENT_NAME("ExecuteExampleComputeShader"),
 				PassParameters,
@@ -202,24 +215,25 @@ void FExampleComputeShaderInterface::DispatchRenderThread(FRHICommandListImmedia
 			FRHIGPUBufferReadback* GPUBufferReadback = new FRHIGPUBufferReadback(TEXT("ExecuteExampleComputeShaderOutput"));
 			AddEnqueueCopyPass(GraphBuilder, GPUBufferReadback, IOBuffer, 0u);
 
-			auto RunnerFunc = [GPUBufferReadback, AsyncCallback](auto&& RunnerFunc) -> void {
+			auto RunnerFunc = [GPUBufferReadback, numBoids, AsyncCallback](auto&& RunnerFunc) -> void {
 				if (GPUBufferReadback->IsReady()) {
 					
 					FShaderBoidResult* Buffer = (FShaderBoidResult*)GPUBufferReadback->Lock(1);
-					FShaderBoidResult buffer0 = Buffer[0];
-					FString log = buffer0.VM.ToString(); 
-					
+					TArray<FShaderBoidResult> readbackArray(Buffer, numBoids);
+
 					int OutVal = 513;
 
 					GPUBufferReadback->Unlock();
 
-					#if WITH_EDITOR
-						UE_LOG(LogTemp, Warning, TEXT("%s"), *log);
-						//GEngine->AddOnScreenDebugMessage((uint64)42145125184, 6.f, FColor::Red, FString(buffer0.FC.ToString()));
-					#endif
+					//#if WITH_EDITOR
+						//FShaderBoidResult buffer0 = Buffer[0];
+						//FString log = buffer0.VM.ToString();
+						//UE_LOG(LogTemp, Warning, TEXT("%s"), *log);
+					//	//GEngine->AddOnScreenDebugMessage((uint64)42145125184, 6.f, FColor::Red, FString(buffer0.FC.ToString()));
+					//#endif
 
-					AsyncTask(ENamedThreads::GameThread, [AsyncCallback, OutVal]() {
-						AsyncCallback(OutVal);
+					AsyncTask(ENamedThreads::GameThread, [AsyncCallback, readbackArray]() {
+						AsyncCallback(readbackArray);
 					});
 
 					delete GPUBufferReadback;

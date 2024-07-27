@@ -4,7 +4,9 @@
 struct FShaderBoid
 {
     float3 location;
+    float padding;
     float3 forward;
+    float padding2;
 };
 
 struct FShaderBoidResult
@@ -12,24 +14,73 @@ struct FShaderBoidResult
     float3 CA;
     float3 VM;
     float3 FC;
+    int neighbours;
 };
 
+#define radius 500
+#define avoidRadius 100
+
+int NumberBoids;
 StructuredBuffer<FShaderBoid> InputBoids;
 RWStructuredBuffer<FShaderBoidResult> OutputBoids;
 
-[numthreads(THREADS_X, THREADS_Y, THREADS_Z)]
+[numthreads(256, 1, 1)]
 void ExampleComputeShader(
 	uint3 DispatchThreadId : SV_DispatchThreadID,
 	uint GroupIndex : SV_GroupIndex )
 {
-	// Outputs one number
-	//Output[0] = Input[0] * Input[1];
-    int i = 0;
-    i++;
+    if (DispatchThreadId.x >= NumberBoids)
+    {
+        return;
+    }
     
-    uint numBoids;
-    uint stride;
+    float radiusSqr = pow(radius, 2);
+    float avoidRadiusSqr = pow(avoidRadius, 2);
+    float3 CA = float3(0, 0, 0);
+    float3 FC = float3(0, 0, 0);
+    float3 VM = float3(0, 0, 0);
+    int neighbours = 0;
+    for (int j = 0; j < NumberBoids; j++)
+    {
+        
+        if (DispatchThreadId.x == j)
+        {
+            continue;
+        }
+        
+        float3 distanceVector = InputBoids[j].location - InputBoids[DispatchThreadId.x].location;
+        float distanceSqr = distanceVector.x * distanceVector.x + distanceVector.y * distanceVector.y + distanceVector.z * distanceVector.z;
+        if (distanceSqr > radiusSqr)
+        {
+            continue;
+        }
+            
+        neighbours++;
+        
+        if (distanceSqr < avoidRadiusSqr)
+        {
+            CA -= distanceVector / distanceSqr;
+        }
+            
+        VM += InputBoids[j].forward;
+            
+        FC += InputBoids[j].location;
+        
+    }
     
-    InputBoids.GetDimensions(numBoids, stride);
-    OutputBoids[0].VM = InputBoids[0].forward + InputBoids[0].location;
+    OutputBoids[DispatchThreadId.x].CA = CA;
+    OutputBoids[DispatchThreadId.x].FC = FC;
+    OutputBoids[DispatchThreadId.x].VM = VM;
+    OutputBoids[DispatchThreadId.x].neighbours = neighbours;
+    
+    //OutputBoids[DispatchThreadId.x].CA = float3(413, 413, 413);
+    //OutputBoids[DispatchThreadId.x].FC = float3(413, 413, 413);
+    //OutputBoids[DispatchThreadId.x].VM = float3(413, 413, 413);
+    //OutputBoids[DispatchThreadId.x].neighbours = 413;
+    
+    //OutputBoids[DispatchThreadId.x].CA = InputBoids[1999].location;
+    //OutputBoids[DispatchThreadId.x].FC = InputBoids[1999].forward;
+    //OutputBoids[DispatchThreadId.x].VM = VM;
+    //OutputBoids[DispatchThreadId.x].neighbours = NumberBoids;
+
 }

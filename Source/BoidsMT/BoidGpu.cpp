@@ -51,6 +51,8 @@ void ABoidGpu::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	velocity += acceleration * DeltaTime;
+	velocity = velocity.GetClampedToSize(minSpeed, maxSpeed);
+	position = position + velocity * DeltaTime;
 
 	//UKismetSystemLibrary::LineTraceSingle(nullptr, GetActorLocation(), GetActorLocation() + GetActorForwardVector() * 10, ETraceTypeQuery::TraceTypeQuery1, false);
 
@@ -82,8 +84,7 @@ void ABoidGpu::Tick(float DeltaTime)
 	//SetActorRotation(dir.Rotation());
 	//SetActorLocation(GetActorLocation() + velocity * DeltaTime);
 
-	velocity = velocity.GetClampedToSize(minSpeed, maxSpeed);
-	position = position + velocity * DeltaTime;
+
 
 	//SetActorLocationAndRotation(GetActorLocation() + velocity * DeltaTime, velocity.Rotation(), false, nullptr ,ETeleportType::TeleportPhysics);
 	//TeleportTo(GetActorLocation() + velocity * DeltaTime, velocity.Rotation(), true, true);

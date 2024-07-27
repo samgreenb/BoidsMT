@@ -31,7 +31,9 @@ struct COMPUTESHADER_API FExampleComputeShaderDispatchParams
 struct COMPUTESHADER_API FShaderBoid
 {
 	FVector3f location;
+	float padding;
 	FVector3f forward;
+	float padding2;
 };
 
 struct COMPUTESHADER_API FShaderBoidResult
@@ -39,6 +41,7 @@ struct COMPUTESHADER_API FShaderBoidResult
 	FVector3f CA;
 	FVector3f VM;
 	FVector3f FC;
+	uint32 neighbours;
 };
 
 // This is a public interface that we define so outside code can invoke our compute shader.
@@ -48,33 +51,33 @@ public:
 	// Executes this shader on the render thread
 	static void DispatchRenderThread(
 		FRHICommandListImmediate& RHICmdList,
-		FExampleComputeShaderDispatchParams Params,
-		TFunction<void(int OutputVal)> AsyncCallback
+		FExampleComputeShaderDispatchParams Params, TArray<FShaderBoid> shaderBoids,
+		TFunction<void(TArray<FShaderBoidResult> shaderBoidsResult)> AsyncCallback
 	);
 
 	// Executes this shader on the render thread from the game thread via EnqueueRenderThreadCommand
 	static void DispatchGameThread(
-		FExampleComputeShaderDispatchParams Params,
-		TFunction<void(int OutputVal)> AsyncCallback
+		FExampleComputeShaderDispatchParams Params, TArray<FShaderBoid> shaderBoids,
+		TFunction<void(TArray<FShaderBoidResult> shaderBoidsResult)> AsyncCallback
 	)
 	{
 		ENQUEUE_RENDER_COMMAND(SceneDrawCompletion)(
-		[Params, AsyncCallback](FRHICommandListImmediate& RHICmdList)
+		[Params, shaderBoids, AsyncCallback](FRHICommandListImmediate& RHICmdList)
 		{
-			DispatchRenderThread(RHICmdList, Params, AsyncCallback);
+			DispatchRenderThread(RHICmdList, Params, shaderBoids, AsyncCallback);
 		});
 	}
 
 	// Dispatches this shader. Can be called from any thread
 	static void Dispatch(
-		FExampleComputeShaderDispatchParams Params,
-		TFunction<void(int OutputVal)> AsyncCallback
+		FExampleComputeShaderDispatchParams Params, TArray<FShaderBoid> shaderBoids,
+		TFunction<void(TArray<FShaderBoidResult> shaderBoidsResult)> AsyncCallback
 	)
 	{
 		if (IsInRenderingThread()) {
-			DispatchRenderThread(GetImmediateCommandList_ForRenderCommand(), Params, AsyncCallback);
+			DispatchRenderThread(GetImmediateCommandList_ForRenderCommand(), Params, shaderBoids, AsyncCallback);
 		}else{
-			DispatchGameThread(Params, AsyncCallback);
+			DispatchGameThread(Params, shaderBoids, AsyncCallback);
 		}
 	}
 };

@@ -2,7 +2,7 @@
 
 
 #include "BoidGpuManager.h"
-#include "ComputeShader/Public/ExampleComputeShader/ExampleComputeShader.h"
+#include "Kismet/KismetMathLibrary.h"
 
 // Sets default values
 ABoidGpuManager::ABoidGpuManager()
@@ -24,8 +24,12 @@ ABoidGpuManager::ABoidGpuManager()
 	randomInitialSpeed = false;
 	useTarget = false;
 	debug = false;
+	executeInGPU = false;
 	numThinkGroups = 1;
 	thinkGroupCounter = 0;
+
+	debugCounter = 0;
+	threadsShader = FVector(1);
 
 	MeshInstances = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("MeshInstances"));
 }
@@ -39,20 +43,6 @@ void ABoidGpuManager::BeginPlay()
 	//	TSet<ABoidGpu*> set;
 	//	thinkGroups.Add(set);
 	//}
-
-	FExampleComputeShaderDispatchParams Params(1, 1, 1);
-
-	Params.Input[0] = 2;
-	Params.Input[1] = 6;
-
-	FExampleComputeShaderInterface::Dispatch(Params, [&](int OutputVal) {
-		// OutputVal == 10
-		// Called when the results are back from the GPU.
-
-		UE_LOG(LogTemp, Warning, TEXT("HERE"));
-		UE_LOG(LogTemp, Warning, TEXT("%i"), OutputVal);
-			
-	});
 	
 }
 
@@ -74,12 +64,15 @@ void ABoidGpuManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	for (auto& Elem : thinkGroups[thinkGroupCounter])
-	{
-		ProcessBoid(Elem);
-	}
 	thinkGroupCounter++;
-	thinkGroupCounter  = thinkGroupCounter % numThinkGroups;
+	thinkGroupCounter = thinkGroupCounter % numThinkGroups;
+
+	if (executeInGPU) {
+		ProcessGPU();
+	}
+	else {
+		ProcessCPU();
+	}
 
 	TArray<FTransform> transforms;
 	for (auto& Elem : AllBoids)
@@ -89,6 +82,95 @@ void ABoidGpuManager::Tick(float DeltaTime)
 	}
 	MeshInstances->BatchUpdateInstancesTransforms(0, transforms, true, false, true);
 	//MeshInstances->MarkRenderStateDirty();
+}
+
+void ABoidGpuManager::ProcessCPU()
+{
+
+	for (auto& Elem : thinkGroups[thinkGroupCounter])
+	{
+		ProcessBoid(Elem);
+	}
+}
+
+void ABoidGpuManager::ProcessGPU()
+{
+	FExampleComputeShaderDispatchParams Params(UKismetMathLibrary::FCeil(AllBoids.Num() / 256), 1, 1);
+
+	Params.Input[0] = 2;
+	Params.Input[1] = 6;
+
+	TArray<FShaderBoid> shaderBoids;
+	for (auto& Elem : AllBoids)
+	{
+		FShaderBoid b;
+		b.location = FVector3f(Elem->GetBoidPosition());
+		b.forward = FVector3f(Elem->GetBoidVelocity());
+		shaderBoids.Add(b);
+	}
+
+	FExampleComputeShaderInterface::Dispatch(Params, shaderBoids, [&](TArray<FShaderBoidResult> shaderBoidsResult) {
+		// OutputVal == 10
+		// Called when the results are back from the GPU.
+
+		FString log1 = shaderBoidsResult[256].CA.ToString();
+		FString log2 = shaderBoidsResult[256].FC.ToString();
+		FString log3 = shaderBoidsResult[256].VM.ToString();
+		UE_LOG(LogTemp, Warning, TEXT("CA %s"), *log1);
+		UE_LOG(LogTemp, Warning, TEXT("FC %s"), *log2);
+		UE_LOG(LogTemp, Warning, TEXT("VM %s"), *log3);
+		UE_LOG(LogTemp, Warning, TEXT("Neigh %i"), shaderBoidsResult[256].neighbours);
+		UE_LOG(LogTemp, Warning, TEXT("Exit size %i"), shaderBoidsResult.Num());
+
+		//UE_LOG(LogTemp, Warning, TEXT("HERE"));
+		//UE_LOG(LogTemp, Warning, TEXT("%i"), OutputVal);
+		//UE_LOG(LogTemp, Warning, TEXT("%i"), debugCounter);
+		//debugCounter++;
+		int counter = 0;
+		for (auto& Elem : AllBoids) {
+			ProcessBoidGPU(shaderBoidsResult[counter], Elem, counter);
+			counter++;
+		}
+
+	});
+}
+
+void ABoidGpuManager::ProcessBoidGPU(FShaderBoidResult result, ABoidGpu* b, int id)
+{
+	FVector CA(result.CA);
+
+	FVector VM(result.VM);
+
+	FVector FC(result.FC);
+
+	FVector acceleration(0, 0, 0);
+
+	if (useTarget && target != NULL) {
+		FVector offsetToTarget = target->GetActorLocation() - b->GetBoidPosition();
+		acceleration = Steer(offsetToTarget, b->GetBoidVelocity()) * targetWeight;
+	}
+
+	if (result.neighbours > 0) {
+
+		CA = Steer(CA, b->GetBoidVelocity()) * collisionAvoidanceWeight;
+
+		VM = Steer(VM, b->GetBoidVelocity()) * velocityMatchingWeight;
+
+		FC = FC / result.neighbours;
+		FC = FC - b->GetBoidPosition();
+		FC = Steer(FC, b->GetBoidVelocity()) * flockCenteringWeight;
+
+		if (CA.Length() > 0.0f) {
+			acceleration += CA;
+		}
+		else {
+			acceleration += VM;
+			acceleration += FC;
+		}
+
+	}
+
+	b->SetAcceleration(acceleration);
 }
 
 void ABoidGpuManager::ProcessBoid(ABoidGpu* b)
