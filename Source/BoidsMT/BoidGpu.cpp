@@ -45,14 +45,21 @@ void ABoidGpu::BeginPlay()
 
 }
 
+void ABoidGpu::UpdateBoid(float DeltaTime)
+{
+	velocity += acceleration * DeltaTime;
+	velocity = velocity.GetClampedToSize(minSpeed, maxSpeed);
+	position = position + velocity * DeltaTime;
+}
+
 // Called every frame
 void ABoidGpu::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	velocity += acceleration * DeltaTime;
-	velocity = velocity.GetClampedToSize(minSpeed, maxSpeed);
-	position = position + velocity * DeltaTime;
+	//velocity += acceleration * DeltaTime;
+	//velocity = velocity.GetClampedToSize(minSpeed, maxSpeed);
+	//position = position + velocity * DeltaTime;
 
 	//UKismetSystemLibrary::LineTraceSingle(nullptr, GetActorLocation(), GetActorLocation() + GetActorForwardVector() * 10, ETraceTypeQuery::TraceTypeQuery1, false);
 

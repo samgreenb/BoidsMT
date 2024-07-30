@@ -80,6 +80,8 @@ public:
 
 	void SetAcceleration(FVector a);
 
+	void UpdateBoid(float DeltaTime);
+
 	UFUNCTION(BlueprintCallable)
 	void SetId(int32 id);
 

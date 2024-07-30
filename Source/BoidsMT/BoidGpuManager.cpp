@@ -77,6 +77,7 @@ void ABoidGpuManager::Tick(float DeltaTime)
 	TArray<FTransform> transforms;
 	for (auto& Elem : AllBoids)
 	{
+		Elem->UpdateBoid(DeltaTime);
 		//MeshInstances->UpdateInstanceTransform(Elem->GetId(), Elem->GetBoidTransform(), true, false, true);
 		transforms.Add(Elem->GetBoidTransform());
 	}

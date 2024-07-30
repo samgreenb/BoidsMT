@@ -27,7 +27,7 @@ RWStructuredBuffer<FShaderBoidResult> OutputBoids;
 [numthreads(256, 1, 1)]
 void ExampleComputeShader(
 	uint3 DispatchThreadId : SV_DispatchThreadID,
-	uint GroupIndex : SV_GroupIndex )
+	uint GroupIndex : SV_GroupIndex)
 {
     if (DispatchThreadId.x >= NumberBoids)
     {
