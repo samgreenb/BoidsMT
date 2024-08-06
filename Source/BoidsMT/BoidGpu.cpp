@@ -25,6 +25,8 @@ ABoidGpu::ABoidGpu()
 	useTarget = false;
 	debug = false;
 	acceleration = FVector(0, 0, 0);
+
+	obstacleAvoidance = false;
 	
 }
 
@@ -47,6 +49,44 @@ void ABoidGpu::BeginPlay()
 
 void ABoidGpu::UpdateBoid(float DeltaTime)
 {
+	if (obstacleAvoidance) {
+		FCollisionQueryParams RV_TraceParams = FCollisionQueryParams(FName(TEXT("RV_Trace")), true, this);
+		RV_TraceParams.bTraceComplex = true;
+		//RV_TraceParams.bTraceAsyncScene = true;
+		RV_TraceParams.bReturnPhysicalMaterial = false;
+
+		//Re-initialize hit info
+		FHitResult RV_Hit(ForceInit);
+		FVector f = GetBoidVelocity();
+		f.Normalize();
+		//call GetWorld() from within an actor extending class
+
+		GetWorld()->LineTraceSingleByChannel(
+			RV_Hit,		//result
+			GetBoidPosition(),	//start
+			GetBoidPosition() + (f * FVector(1000.0f)), //end
+			ECC_WorldStatic, //collision channel
+			RV_TraceParams
+		);
+
+		if (RV_Hit.bBlockingHit) {
+			//FString log = RV_Hit.GetActor()->GetActorNameOrLabel();
+			//UE_LOG(LogTemp, Warning, TEXT("got a hit with %s"), *log);
+
+			FVector OAAcceleration;
+			OAAcceleration = FVector::VectorPlaneProject(RV_Hit.ImpactNormal, f);
+			OAAcceleration.Normalize();
+			OAAcceleration *= 1000;
+			OAAcceleration = Steer(OAAcceleration);
+
+			velocity += OAAcceleration * DeltaTime;
+			velocity = velocity.GetClampedToSize(minSpeed, maxSpeed);
+			position = position + velocity * DeltaTime;
+			return;
+		}
+	}
+
+
 	velocity += acceleration * DeltaTime;
 	velocity = velocity.GetClampedToSize(minSpeed, maxSpeed);
 	position = position + velocity * DeltaTime;

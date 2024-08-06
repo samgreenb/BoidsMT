@@ -140,8 +140,8 @@ void FExampleComputeShaderInterface::DispatchRenderThread(FRHICommandListImmedia
 			//a.location = FVector3f(8.0f);
 			//boidst.Add(a);
 			uint32 size1 = shaderBoids.Num();
-			UE_LOG(LogTemp, Warning, TEXT("Input Size %i"), size1);
-			UE_LOG(LogTemp, Warning, TEXT("Size of fv3f %i"), sizeof(FVector3f));
+			//UE_LOG(LogTemp, Warning, TEXT("Input Size %i"), size1);
+			//UE_LOG(LogTemp, Warning, TEXT("Size of fv3f %i"), sizeof(FVector3f));
 			if (size1 > 0)
 			{
 				FRDGBufferRef InputBuffer4 = CreateStructuredBuffer(
@@ -201,7 +201,7 @@ void FExampleComputeShaderInterface::DispatchRenderThread(FRHICommandListImmedia
 			//auto GroupCount = FComputeShaderUtils::GetGroupCount(FIntVector(Params.X, Params.Y, Params.Z), FComputeShaderUtils::kGolden2DGroupSize);
 			auto GroupCount = FIntVector(Params.X, Params.Y, Params.Z);
 			FString loggc = GroupCount.ToString();
-			UE_LOG(LogTemp, Warning, TEXT("group count %s"), *loggc);
+			//UE_LOG(LogTemp, Warning, TEXT("group count %s"), *loggc);
 			GraphBuilder.AddPass(
 				RDG_EVENT_NAME("ExecuteExampleComputeShader"),
 				PassParameters,

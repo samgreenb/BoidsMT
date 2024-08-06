@@ -57,6 +57,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Attributes)
 	bool debug;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Attributes)
+	bool obstacleAvoidance;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
