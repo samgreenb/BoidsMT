@@ -70,6 +70,9 @@ void ABoidGpuManager::Tick(float DeltaTime)
 	if (executeInGPU) {
 		ProcessGPU();
 	}
+	else if(useSpacePartitioning){
+		ProcessCPUSpacePartitioning();
+	}
 	else {
 		ProcessCPU();
 	}
@@ -83,6 +86,139 @@ void ABoidGpuManager::Tick(float DeltaTime)
 	}
 	MeshInstances->BatchUpdateInstancesTransforms(0, transforms, true, false, true);
 	//MeshInstances->MarkRenderStateDirty();
+}
+
+void ABoidGpuManager::ProcessCPUSpacePartitioning()
+{
+	//double start = FPlatformTime::Seconds();
+	FVector min = FVector(0);
+	FVector max = FVector(0);
+
+	for (auto& Elem : AllBoids)
+	{
+		min = Elem->GetBoidPosition();
+		max = Elem->GetBoidPosition();
+		break;
+	}
+
+	TArray<FTreeBoid> shaderBoids;
+	for (auto& Elem : AllBoids)
+	{
+		FTreeBoid b;
+		FVector p = Elem->GetBoidPosition();
+		b.id = Elem->GetUniqueID();
+		b.location = Elem->GetBoidPosition();
+		b.forward = Elem->GetBoidVelocity();
+		shaderBoids.Add(b);
+
+		if (p.X < min.X) min.X = p.X;
+		if (p.Y < min.Y) min.Y = p.Y;
+		if (p.Z < min.Z) min.Z = p.Z;
+
+		if (p.X > max.X) max.X = p.X;
+		if (p.Y > max.Y) max.Y = p.Y;
+		if (p.Z > max.Z) max.Z = p.Z;
+	}
+
+	min -= FVector(2);
+	max += FVector(2);
+
+	FBox NewBounds = FBox(min, max);
+	FBoidOctree* BoidTree;	
+	BoidTree = new FBoidOctree(NewBounds.GetCenter(), NewBounds.GetExtent().GetMax()); // const FVector & InOrigin, float InExtent
+
+	for (auto& Elem : shaderBoids)
+	{
+		BoidTree->AddElement(&Elem);
+	}
+	//double end = FPlatformTime::Seconds();
+	//UE_LOG(LogTemp, Warning, TEXT("tree built in %f mseconds."), (end - start)*1000);
+
+
+	//double start2 = FPlatformTime::Seconds();
+	for (auto& Elem : thinkGroups[thinkGroupCounter])
+	{
+		ProcessBoidSpacePartitioning(Elem, BoidTree);
+	}
+	//double end2 = FPlatformTime::Seconds();
+	//UE_LOG(LogTemp, Warning, TEXT("boids processed in %f mseconds."), (end2 - start2)*1000);
+}
+
+void ABoidGpuManager::ProcessBoidSpacePartitioning(ABoidGpu* b, FBoidOctree* tree)
+{
+	FBoxCenterAndExtent bounds = FBoxCenterAndExtent(b->GetBoidPosition(), FVector(radius));
+
+	FVector CA(0, 0, 0);
+	int BCount = 0;
+
+	FVector VM(0, 0, 0);
+
+	FVector FC(0, 0, 0);
+
+	FVector acceleration(0, 0, 0);
+
+	if (useTarget && target != NULL) {
+		FVector offsetToTarget = target->GetActorLocation() - b->GetBoidPosition();
+		acceleration = Steer(offsetToTarget, b->GetBoidVelocity()) * targetWeight;
+	}
+
+	tree->FindElementsWithBoundsTest(bounds, [&](const FTreeBoid* foundBoid){
+		
+		if (b->GetUniqueID() == foundBoid->id) return;
+
+		// Collision avoidance
+		FVector distanceVector =  foundBoid->location - b->GetBoidPosition();
+		float distance = distanceVector.Length();
+
+		if (distance > radius) return;
+
+		if (distance < avoidRadius) {
+			float distanceSqr = distanceVector.X * distanceVector.X + distanceVector.Y * distanceVector.Y + distanceVector.Z * distanceVector.Z;
+			CA -= distanceVector / distanceSqr;
+		}
+
+		// Velocity Matching (heading matching for now)
+		VM += foundBoid->forward;
+
+		// Flock centering
+		FC += foundBoid->location;
+
+		BCount++;
+
+	});
+
+	//UE_LOG(LogTemp, Warning, TEXT("bcount %i"), BCount);
+	//FString log1 = CA.ToString();
+	//FString log2 = FC.ToString();
+	//FString log3 = VM.ToString();
+	//UE_LOG(LogTemp, Warning, TEXT("CA %s"), *log1);
+	//UE_LOG(LogTemp, Warning, TEXT("FC %s"), *log2);
+	//UE_LOG(LogTemp, Warning, TEXT("VM %s"), *log3);
+
+	if (BCount > 0) {
+
+		CA = Steer(CA, b->GetBoidVelocity()) * collisionAvoidanceWeight;
+
+		VM = Steer(VM, b->GetBoidVelocity()) * velocityMatchingWeight;
+
+		FC = FC / BCount;
+		FC = FC - b->GetBoidPosition();
+		FC = Steer(FC, b->GetBoidVelocity()) * flockCenteringWeight;
+
+		if (CA.Length() > 0.0f) {
+			acceleration += CA;
+		}
+		else {
+			acceleration += VM;
+			acceleration += FC;
+		}
+
+	}
+
+	//FString log4 = acceleration.ToString();
+	//UE_LOG(LogTemp, Warning, TEXT("acc %s"), *log4);
+
+	b->SetAcceleration(acceleration);
 }
 
 void ABoidGpuManager::ProcessCPU()
@@ -114,14 +250,14 @@ void ABoidGpuManager::ProcessGPU()
 		// OutputVal == 10
 		// Called when the results are back from the GPU.
 
-		FString log1 = shaderBoidsResult[256].CA.ToString();
-		FString log2 = shaderBoidsResult[256].FC.ToString();
-		FString log3 = shaderBoidsResult[256].VM.ToString();
-		UE_LOG(LogTemp, Warning, TEXT("CA %s"), *log1);
-		UE_LOG(LogTemp, Warning, TEXT("FC %s"), *log2);
-		UE_LOG(LogTemp, Warning, TEXT("VM %s"), *log3);
-		UE_LOG(LogTemp, Warning, TEXT("Neigh %i"), shaderBoidsResult[256].neighbours);
-		UE_LOG(LogTemp, Warning, TEXT("Exit size %i"), shaderBoidsResult.Num());
+		//FString log1 = shaderBoidsResult[256].CA.ToString();
+		//FString log2 = shaderBoidsResult[256].FC.ToString();
+		//FString log3 = shaderBoidsResult[256].VM.ToString();
+		//UE_LOG(LogTemp, Warning, TEXT("CA %s"), *log1);
+		//UE_LOG(LogTemp, Warning, TEXT("FC %s"), *log2);
+		//UE_LOG(LogTemp, Warning, TEXT("VM %s"), *log3);
+		//UE_LOG(LogTemp, Warning, TEXT("Neigh %i"), shaderBoidsResult[256].neighbours);
+		//UE_LOG(LogTemp, Warning, TEXT("Exit size %i"), shaderBoidsResult.Num());
 
 		//UE_LOG(LogTemp, Warning, TEXT("HERE"));
 		//UE_LOG(LogTemp, Warning, TEXT("%i"), OutputVal);
@@ -204,17 +340,17 @@ void ABoidGpuManager::ProcessBoid(ABoidGpu* b)
 
 		// distance check
 		FVector distanceVector = Elem->GetBoidPosition() - b->GetBoidPosition();
-		float distanceSqr = distanceVector.X * distanceVector.X + distanceVector.Y * distanceVector.Y + distanceVector.Z * distanceVector.Z;
 		float distance = distanceVector.Length();
 
-		if (distanceSqr > radius * radius) {
+		if (distance > radius) {
 			continue;
 		}
 
 		BCount++;
 
 		// Collision avoidance
-		if (distanceSqr < avoidRadius * avoidRadius) {
+		if (distance < avoidRadius) {
+			float distanceSqr = distanceVector.X * distanceVector.X + distanceVector.Y * distanceVector.Y + distanceVector.Z * distanceVector.Z;
 			CA -= distanceVector / distanceSqr;
 		}
 

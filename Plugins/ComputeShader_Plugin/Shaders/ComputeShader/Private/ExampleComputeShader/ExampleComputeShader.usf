@@ -49,16 +49,18 @@ void ExampleComputeShader(
         }
         
         float3 distanceVector = InputBoids[j].location - InputBoids[DispatchThreadId.x].location;
-        float distanceSqr = distanceVector.x * distanceVector.x + distanceVector.y * distanceVector.y + distanceVector.z * distanceVector.z;
-        if (distanceSqr > radiusSqr)
+        float distance = length(distanceVector);
+        
+        if (distance > radius)
         {
             continue;
         }
             
         neighbours++;
         
-        if (distanceSqr < avoidRadiusSqr)
+        if (distance < avoidRadius)
         {
+            float distanceSqr = distanceVector.x * distanceVector.x + distanceVector.y * distanceVector.y + distanceVector.z * distanceVector.z;
             CA -= distanceVector / distanceSqr;
         }
             

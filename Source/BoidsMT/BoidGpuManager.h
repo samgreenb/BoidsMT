@@ -9,6 +9,39 @@
 #include "ComputeShader/Public/ExampleComputeShader/ExampleComputeShader.h"
 #include "BoidGpuManager.generated.h"
 
+struct FTreeBoid
+{
+	uint32 id;
+	FVector location;
+	FVector forward;
+};
+
+struct FBoidSemantics
+{
+	enum { MaxElementsPerLeaf = 16 };
+	enum { MinInclusiveElementsPerNode = 7 };
+	enum { MaxNodeDepth = 12 };
+
+	typedef TInlineAllocator<MaxElementsPerLeaf> ElementAllocator;
+
+	FORCEINLINE static FBoxCenterAndExtent GetBoundingBox(const FTreeBoid* Element)
+	{
+		FBoxCenterAndExtent bc(Element->location, FVector(1, 1, 1));
+		return bc;
+	}
+
+	FORCEINLINE static bool AreElementsEqual(const FTreeBoid* A, const FTreeBoid* B)
+	{
+		return A->id == B->id;
+	}
+
+	FORCEINLINE static void SetElementId(const FTreeBoid* Element, FOctreeElementId2 Id)
+	{
+	}
+};
+
+typedef TOctree2<FTreeBoid*, FBoidSemantics> FBoidOctree;
+
 UCLASS()
 class BOIDSMT_API ABoidGpuManager : public AActor
 {
@@ -64,6 +97,9 @@ public:
 	bool executeInGPU;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Attributes)
+	bool useSpacePartitioning;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Attributes)
 	int numThinkGroups;
 
 	int debugCounter;
@@ -87,6 +123,7 @@ protected:
 	TArray< TSet<ABoidGpu*> > thinkGroups;
 
 	void ProcessBoid(ABoidGpu* b);
+	void ProcessBoidSpacePartitioning(ABoidGpu* b, FBoidOctree* tree);
 	void ProcessBoidGPU(FShaderBoidResult result, ABoidGpu* b, int id);
 
 	FVector Steer(FVector v, FVector velocity);
@@ -97,6 +134,8 @@ protected:
 	void ProcessGPU();
 
 	void ProcessCPU();
+
+	void ProcessCPUSpacePartitioning();
 
 	int thinkGroupCounter;
 
