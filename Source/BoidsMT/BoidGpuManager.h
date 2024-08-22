@@ -100,6 +100,9 @@ public:
 	bool useSpacePartitioning;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Attributes)
+	bool useObstacleAvoidance;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Attributes)
 	int numThinkGroups;
 
 	int debugCounter;

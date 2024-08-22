@@ -25,6 +25,7 @@ ABoidGpuManager::ABoidGpuManager()
 	useTarget = false;
 	debug = false;
 	executeInGPU = false;
+	useObstacleAvoidance = false;
 	numThinkGroups = 1;
 	thinkGroupCounter = 0;
 

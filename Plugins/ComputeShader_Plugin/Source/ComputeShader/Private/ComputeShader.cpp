@@ -30,4 +30,4 @@ void FComputeShader::ShutdownModule()
 
 #undef LOCTEXT_NAMESPACE
 	
-IMPLEMENT_MODULE(FComputeShader, ShadeupExamplePlugin)
+IMPLEMENT_MODULE(FComputeShader, ComputeShader)

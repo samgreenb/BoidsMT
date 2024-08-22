@@ -1,5 +1,4 @@
 #include "/Engine/Public/Platform.ush"
-//#include "ComputeShader/Public/ExampleComputeShader/ExampleComputeShader.h"
 
 struct FShaderBoid
 {
