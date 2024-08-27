@@ -9,6 +9,7 @@
 #include "ComputeShader/Public/ExampleComputeShader/ExampleComputeShader.h"
 #include "BoidGpuManager.generated.h"
 
+// Struct used to define the octree for the spatial partitioning implementation
 struct FTreeBoid
 {
 	uint32 id;
@@ -16,6 +17,7 @@ struct FTreeBoid
 	FVector forward;
 };
 
+// Struct used to set up the octree's parameters
 struct FBoidSemantics
 {
 	enum { MaxElementsPerLeaf = 16 };

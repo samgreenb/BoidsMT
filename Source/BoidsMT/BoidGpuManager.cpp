@@ -35,18 +35,13 @@ ABoidGpuManager::ABoidGpuManager()
 	MeshInstances = CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("MeshInstances"));
 }
 
-// Called when the game starts or when spawned
 void ABoidGpuManager::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	//for (int i = 0; i++; i < numThinkGroups) {
-	//	TSet<ABoidGpu*> set;
-	//	thinkGroups.Add(set);
-	//}
-	
 }
 
+// Distributes agents in equal sized groups for the staggered think rate implementation
 void ABoidGpuManager::SetThinkGroups()
 {
 	thinkGroups.SetNum(numThinkGroups);
@@ -60,7 +55,6 @@ void ABoidGpuManager::SetThinkGroups()
 
 }
 
-// Called every frame
 void ABoidGpuManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -68,6 +62,7 @@ void ABoidGpuManager::Tick(float DeltaTime)
 	thinkGroupCounter++;
 	thinkGroupCounter = thinkGroupCounter % numThinkGroups;
 
+	// This section runs the selected version of the algorithm
 	if (executeInGPU) {
 		ProcessGPU();
 	}
@@ -78,20 +73,20 @@ void ABoidGpuManager::Tick(float DeltaTime)
 		ProcessCPU();
 	}
 
+	// This code runs every frame independently of the implementation used, and updates the Instanced Static Meshes object to update the visual
+	// representation of the agents
 	TArray<FTransform> transforms;
 	for (auto& Elem : AllBoids)
 	{
 		Elem->UpdateBoid(DeltaTime);
-		//MeshInstances->UpdateInstanceTransform(Elem->GetId(), Elem->GetBoidTransform(), true, false, true);
 		transforms.Add(Elem->GetBoidTransform());
 	}
 	MeshInstances->BatchUpdateInstancesTransforms(0, transforms, true, false, true);
-	//MeshInstances->MarkRenderStateDirty();
 }
 
+// This code sets up the octree and calls the amin function for each boid
 void ABoidGpuManager::ProcessCPUSpacePartitioning()
 {
-	//double start = FPlatformTime::Seconds();
 	FVector min = FVector(0);
 	FVector max = FVector(0);
 
@@ -132,19 +127,14 @@ void ABoidGpuManager::ProcessCPUSpacePartitioning()
 	{
 		BoidTree->AddElement(&Elem);
 	}
-	//double end = FPlatformTime::Seconds();
-	//UE_LOG(LogTemp, Warning, TEXT("tree built in %f mseconds."), (end - start)*1000);
 
-
-	//double start2 = FPlatformTime::Seconds();
 	for (auto& Elem : thinkGroups[thinkGroupCounter])
 	{
 		ProcessBoidSpacePartitioning(Elem, BoidTree);
 	}
-	//double end2 = FPlatformTime::Seconds();
-	//UE_LOG(LogTemp, Warning, TEXT("boids processed in %f mseconds."), (end2 - start2)*1000);
 }
 
+// This section queries the octree for each boid and calculates the acceleration vector
 void ABoidGpuManager::ProcessBoidSpacePartitioning(ABoidGpu* b, FBoidOctree* tree)
 {
 	FBoxCenterAndExtent bounds = FBoxCenterAndExtent(b->GetBoidPosition(), FVector(radius));
@@ -167,7 +157,6 @@ void ABoidGpuManager::ProcessBoidSpacePartitioning(ABoidGpu* b, FBoidOctree* tre
 		
 		if (b->GetUniqueID() == foundBoid->id) return;
 
-		// Collision avoidance
 		FVector distanceVector =  foundBoid->location - b->GetBoidPosition();
 		float distance = distanceVector.Length();
 
@@ -178,23 +167,13 @@ void ABoidGpuManager::ProcessBoidSpacePartitioning(ABoidGpu* b, FBoidOctree* tre
 			CA -= distanceVector / distanceSqr;
 		}
 
-		// Velocity Matching (heading matching for now)
 		VM += foundBoid->forward;
 
-		// Flock centering
 		FC += foundBoid->location;
 
 		BCount++;
 
 	});
-
-	//UE_LOG(LogTemp, Warning, TEXT("bcount %i"), BCount);
-	//FString log1 = CA.ToString();
-	//FString log2 = FC.ToString();
-	//FString log3 = VM.ToString();
-	//UE_LOG(LogTemp, Warning, TEXT("CA %s"), *log1);
-	//UE_LOG(LogTemp, Warning, TEXT("FC %s"), *log2);
-	//UE_LOG(LogTemp, Warning, TEXT("VM %s"), *log3);
 
 	if (BCount > 0) {
 
@@ -216,21 +195,19 @@ void ABoidGpuManager::ProcessBoidSpacePartitioning(ABoidGpu* b, FBoidOctree* tre
 
 	}
 
-	//FString log4 = acceleration.ToString();
-	//UE_LOG(LogTemp, Warning, TEXT("acc %s"), *log4);
-
 	b->SetAcceleration(acceleration);
 }
 
+// Helper method to iterate over all boids in the initial implementation
 void ABoidGpuManager::ProcessCPU()
 {
-
 	for (auto& Elem : thinkGroups[thinkGroupCounter])
 	{
 		ProcessBoid(Elem);
 	}
 }
 
+// This code prepares the information of the agents for the buffer and initiates the dispatcch of the compute shader
 void ABoidGpuManager::ProcessGPU()
 {
 	FExampleComputeShaderDispatchParams Params(UKismetMathLibrary::FCeil(AllBoids.Num() / 256), 1, 1);
@@ -248,22 +225,8 @@ void ABoidGpuManager::ProcessGPU()
 	}
 
 	FExampleComputeShaderInterface::Dispatch(Params, shaderBoids, [&](TArray<FShaderBoidResult> shaderBoidsResult) {
-		// OutputVal == 10
-		// Called when the results are back from the GPU.
 
-		//FString log1 = shaderBoidsResult[256].CA.ToString();
-		//FString log2 = shaderBoidsResult[256].FC.ToString();
-		//FString log3 = shaderBoidsResult[256].VM.ToString();
-		//UE_LOG(LogTemp, Warning, TEXT("CA %s"), *log1);
-		//UE_LOG(LogTemp, Warning, TEXT("FC %s"), *log2);
-		//UE_LOG(LogTemp, Warning, TEXT("VM %s"), *log3);
-		//UE_LOG(LogTemp, Warning, TEXT("Neigh %i"), shaderBoidsResult[256].neighbours);
-		//UE_LOG(LogTemp, Warning, TEXT("Exit size %i"), shaderBoidsResult.Num());
-
-		//UE_LOG(LogTemp, Warning, TEXT("HERE"));
-		//UE_LOG(LogTemp, Warning, TEXT("%i"), OutputVal);
-		//UE_LOG(LogTemp, Warning, TEXT("%i"), debugCounter);
-		//debugCounter++;
+		// This code runs when the GPU sends the data back and runs the main method for each boid
 		int counter = 0;
 		for (auto& Elem : AllBoids) {
 			ProcessBoidGPU(shaderBoidsResult[counter], Elem, counter);
@@ -273,6 +236,7 @@ void ABoidGpuManager::ProcessGPU()
 	});
 }
 
+// This method uses the information received from the GPU to calculate the final acceleration vector for a given boid
 void ABoidGpuManager::ProcessBoidGPU(FShaderBoidResult result, ABoidGpu* b, int id)
 {
 	FVector CA(result.CA);
@@ -311,6 +275,7 @@ void ABoidGpuManager::ProcessBoidGPU(FShaderBoidResult result, ABoidGpu* b, int 
 	b->SetAcceleration(acceleration);
 }
 
+// This code calculates the acceleration vector for a given boid in the initial implementation
 void ABoidGpuManager::ProcessBoid(ABoidGpu* b)
 {
 	FVector CA(0, 0, 0);
@@ -325,14 +290,6 @@ void ABoidGpuManager::ProcessBoid(ABoidGpu* b)
 	if (useTarget && target != NULL) {
 		FVector offsetToTarget = target->GetActorLocation() - b->GetBoidPosition();
 		acceleration = Steer(offsetToTarget, b->GetBoidVelocity()) * targetWeight;
-		//if (debug) {
-		//	if (GEngine){
-		//		GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Yellow, FString::Printf(TEXT("Actor Location : %f, %f, %f"), GetActorLocation().X, GetActorLocation().Y, GetActorLocation().Z));
-		//		GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Yellow, FString::Printf(TEXT("Target location: %f, %f, %f"), target->GetActorLocation().X, target->GetActorLocation().Y, target->GetActorLocation().Z));
-		//		GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Yellow, FString::Printf(TEXT("Offset         : %f, %f, %f"), offsetToTarget.X, offsetToTarget.Y, offsetToTarget.Z));
-		//		GEngine->AddOnScreenDebugMessage(-1, 0.1f, FColor::Yellow, FString::Printf(TEXT("Acceleration   : %f, %f, %f"), acceleration.X, acceleration.Y, acceleration.Z));
-		//	}
-		//}
 	}
 
 	for (auto& Elem : AllBoids)
@@ -355,13 +312,14 @@ void ABoidGpuManager::ProcessBoid(ABoidGpu* b)
 			CA -= distanceVector / distanceSqr;
 		}
 
-		// Velocity Matching (heading matching for now)
+		// Velocity Matching
 		VM += Elem->GetBoidVelocity();
 
 		// Flock centering
 		FC += Elem->GetBoidPosition();
 	}
 
+	// If neighbours are found alla cceleration vectors are calculated
 	if (BCount > 0) {
 
 		CA = Steer(CA, b->GetBoidVelocity()) * collisionAvoidanceWeight;
@@ -391,23 +349,13 @@ void ABoidGpuManager::SetTarget(AActor* t) {
 
 void ABoidGpuManager::SetAll(TSet<ABoidGpu*> aB) {
 	AllBoids = aB;
-	//if (GEngine)
-	//	GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("Boids received"));
 }
 
+// Calculates the steering necessary to accelerate in a given direction
 FVector ABoidGpuManager::Steer(FVector v, FVector velocity) {
-	//if (GEngine) {
-	//	GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("Before : %f, %f, %f"), v.X, v.Y, v.Z));
-	//}
-	//v.Normalize();
-	//if (GEngine) {
-	//	GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("After : %f, %f, %f"), v.X, v.Y, v.Z));
-	//}
 	if (!v.Normalize()) {
 		return FVector(0, 0, 0);
 	}
 	FVector result = v * maxSpeed - velocity;
 	return result.GetClampedToSize(0.0f, maxSteer);
-	//return result;
-
 }

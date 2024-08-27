@@ -8,6 +8,7 @@
 
 #include "ExampleComputeShader.generated.h"
 
+// Struct that contains the number of groups to dispatch
 struct COMPUTESHADER_API FExampleComputeShaderDispatchParams
 {
 	int X;
@@ -28,6 +29,8 @@ struct COMPUTESHADER_API FExampleComputeShaderDispatchParams
 	}
 };
 
+
+// Struct that defines the input buffer to the shader
 struct COMPUTESHADER_API FShaderBoid
 {
 	FVector3f location;
@@ -36,6 +39,7 @@ struct COMPUTESHADER_API FShaderBoid
 	float padding2;
 };
 
+//Struct that defines the output / readback buffer for the shader
 struct COMPUTESHADER_API FShaderBoidResult
 {
 	FVector3f CA;
@@ -44,18 +48,17 @@ struct COMPUTESHADER_API FShaderBoidResult
 	uint32 neighbours;
 };
 
-// This is a public interface that we define so outside code can invoke our compute shader.
 class COMPUTESHADER_API FExampleComputeShaderInterface {
 
 public:
-	// Executes this shader on the render thread
+
 	static void DispatchRenderThread(
 		FRHICommandListImmediate& RHICmdList,
 		FExampleComputeShaderDispatchParams Params, TArray<FShaderBoid> shaderBoids,
 		TFunction<void(TArray<FShaderBoidResult> shaderBoidsResult)> AsyncCallback
 	);
 
-	// Executes this shader on the render thread from the game thread via EnqueueRenderThreadCommand
+
 	static void DispatchGameThread(
 		FExampleComputeShaderDispatchParams Params, TArray<FShaderBoid> shaderBoids,
 		TFunction<void(TArray<FShaderBoidResult> shaderBoidsResult)> AsyncCallback
@@ -68,7 +71,7 @@ public:
 		});
 	}
 
-	// Dispatches this shader. Can be called from any thread
+	// This is the method called from the main program code to dispatch the shader
 	static void Dispatch(
 		FExampleComputeShaderDispatchParams Params, TArray<FShaderBoid> shaderBoids,
 		TFunction<void(TArray<FShaderBoidResult> shaderBoidsResult)> AsyncCallback
@@ -82,29 +85,19 @@ public:
 	}
 };
 
-
-
-//DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnExampleComputeShaderLibrary_AsyncExecutionCompleted, const int, Value);
-
-
-UCLASS() // Change the _API to match your project
+UCLASS()
 class COMPUTESHADER_API UExampleComputeShaderLibrary_AsyncExecution : public UBlueprintAsyncActionBase
 {
 	GENERATED_BODY()
 
 public:
 	
-	// Execute the actual load
 	virtual void Activate() override {
-		// Create a dispatch parameters struct and fill it the input array with our args
+
 		FExampleComputeShaderDispatchParams Params(1, 1, 1);
 		Params.Input[0] = Arg1;
 		Params.Input[1] = Arg2;
 
-		// Dispatch the compute shader and wait until it completes
-		/*FExampleComputeShaderInterface::Dispatch(Params, [this](int OutputVal) {
-			this->Completed.Broadcast(OutputVal);
-		});*/
 	}
 	
 	
@@ -118,9 +111,6 @@ public:
 
 		return Action;
 	}
-
-	//UPROPERTY(BlueprintAssignable)
-	//FOnExampleComputeShaderLibrary_AsyncExecutionCompleted Completed;
 
 	
 	int Arg1;

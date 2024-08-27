@@ -1,13 +1,8 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "BoidGpu.h"
 #include "Kismet/KismetSystemLibrary.h"
 
-// Sets default values
 ABoidGpu::ABoidGpu()
 {
-	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 	collisionAvoidanceWeight = 0.6f;
 	velocityMatchingWeight = 0.3;
@@ -30,7 +25,7 @@ ABoidGpu::ABoidGpu()
 	
 }
 
-// Called when the game starts or when spawned
+// Called when the game starts or when spawned. Randomizes the agent forward vector and velocity
 void ABoidGpu::BeginPlay()
 {
 	Super::BeginPlay();
@@ -47,19 +42,17 @@ void ABoidGpu::BeginPlay()
 
 }
 
+// Method called every frame by the manager to update the agent velo0city using the acceleration vector
 void ABoidGpu::UpdateBoid(float DeltaTime)
 {
 	if (obstacleAvoidance) {
 		FCollisionQueryParams RV_TraceParams = FCollisionQueryParams(FName(TEXT("RV_Trace")), true, this);
 		RV_TraceParams.bTraceComplex = true;
-		//RV_TraceParams.bTraceAsyncScene = true;
 		RV_TraceParams.bReturnPhysicalMaterial = false;
 
-		//Re-initialize hit info
 		FHitResult RV_Hit(ForceInit);
 		FVector f = GetBoidVelocity();
 		f.Normalize();
-		//call GetWorld() from within an actor extending class
 
 		GetWorld()->LineTraceSingleByChannel(
 			RV_Hit,		//result
@@ -69,9 +62,8 @@ void ABoidGpu::UpdateBoid(float DeltaTime)
 			RV_TraceParams
 		);
 
+		// If a ray cast hits the usual acceleration calculation is s ignored and a obstacle avoidance acceleration is used
 		if (RV_Hit.bBlockingHit) {
-			//FString log = RV_Hit.GetActor()->GetActorNameOrLabel();
-			//UE_LOG(LogTemp, Warning, TEXT("got a hit with %s"), *log);
 
 			FVector OAAcceleration;
 			OAAcceleration = FVector::VectorPlaneProject(RV_Hit.ImpactNormal, f);
@@ -86,64 +78,28 @@ void ABoidGpu::UpdateBoid(float DeltaTime)
 		}
 	}
 
-
 	velocity += acceleration * DeltaTime;
 	velocity = velocity.GetClampedToSize(minSpeed, maxSpeed);
 	position = position + velocity * DeltaTime;
 }
 
-// Called every frame
+// Calculates the steering necessary to accelerate in a given direction
+FVector ABoidGpu::Steer(FVector v) {
+
+	if (!v.Normalize()) {
+		return FVector(0, 0, 0);
+	}
+	FVector result = v * maxSpeed - velocity;
+	return result.GetClampedToSize(0.0f, maxSteer);
+
+}
+
 void ABoidGpu::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	//velocity += acceleration * DeltaTime;
-	//velocity = velocity.GetClampedToSize(minSpeed, maxSpeed);
-	//position = position + velocity * DeltaTime;
+	// Not used
 
-	//UKismetSystemLibrary::LineTraceSingle(nullptr, GetActorLocation(), GetActorLocation() + GetActorForwardVector() * 10, ETraceTypeQuery::TraceTypeQuery1, false);
-
-	// raycasting is here
-
-	//FCollisionQueryParams RV_TraceParams = FCollisionQueryParams(FName(TEXT("RV_Trace")), true, this);
-	//RV_TraceParams.bTraceComplex = true;
-	////RV_TraceParams.bTraceAsyncScene = true;
-	//RV_TraceParams.bReturnPhysicalMaterial = false;
-
-	////Re-initialize hit info
-	//FHitResult RV_Hit(ForceInit);
-
-	////call GetWorld() from within an actor extending class
-	//GetWorld()->LineTraceSingleByChannel(
-	//	RV_Hit,		//result
-	//	GetActorLocation(),	//start
-	//	GetActorLocation() + (GetActorForwardVector() * FVector(10.0f)), //end
-	//	ECC_Pawn, //collision channel
-	//	RV_TraceParams
-	//);
-
-
-	//float targetSpeed = velocity.Length();
-	//FVector dir = velocity / targetSpeed;
-	//targetSpeed = FMath::Clamp(targetSpeed, minSpeed, maxSpeed);
-	//velocity = dir * targetSpeed;
-
-	//SetActorRotation(dir.Rotation());
-	//SetActorLocation(GetActorLocation() + velocity * DeltaTime);
-
-
-
-	//SetActorLocationAndRotation(GetActorLocation() + velocity * DeltaTime, velocity.Rotation(), false, nullptr ,ETeleportType::TeleportPhysics);
-	//TeleportTo(GetActorLocation() + velocity * DeltaTime, velocity.Rotation(), true, true);
-	//SetWorldLocationAndRotation(GetActorLocation() + velocity * DeltaTime, velocity.Rotation(), true, true);
-	//GetRootComponent()->SetWorldLocationAndRotation(GetActorLocation() + velocity * DeltaTime, velocity.Rotation(), false, nullptr, ETeleportType::TeleportPhysics);
-
-	//GetRootComponent()->MoveComponent(velocity * DeltaTime, velocity.Rotation().Quaternion(), false, nullptr, MOVECOMP_NoFlags, ETeleportType::TeleportPhysics);
-
-	//if (debug) {
-	//	if (GEngine)
-	//		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("NBoids in range: %i"), BCount));
-	//}
 }
 
 void ABoidGpu::SetOther(ABoidGpu* o) {
@@ -160,25 +116,6 @@ AActor* ABoidGpu::GetTarget() {
 
 void ABoidGpu::SetAll(TSet<ABoidGpu*> aB) {
 	AllBoids = aB;
-	/*if (GEngine)
-		GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, TEXT("Boids received"));*/
-}
-
-FVector ABoidGpu::Steer(FVector v) {
-	//if (GEngine) {
-	//	GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("Before : %f, %f, %f"), v.X, v.Y, v.Z));
-	//}
-	//v.Normalize();
-	//if (GEngine) {
-	//	GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT("After : %f, %f, %f"), v.X, v.Y, v.Z));
-	//}
-	if (!v.Normalize()) {
-		return FVector(0, 0, 0);
-	}
-	FVector result = v * maxSpeed - velocity;
-	return result.GetClampedToSize(0.0f, maxSteer);
-	//return result;
-
 }
 
 void ABoidGpu::SetAcceleration(FVector a) {
